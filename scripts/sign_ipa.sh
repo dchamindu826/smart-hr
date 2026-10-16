@@ -4,6 +4,7 @@ set -e
 APP_PATH="plan/build/smarthr_app/build/ios/iphoneos/Runner.app"
 PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/profile.mobileprovision"
 IDENTITY="Apple Distribution: Chamindu Dilshan (VPBH5348KQ)"
+KEYCHAIN_PATH="${RUNNER_TEMP:-/tmp}/build.keychain"
 
 if [ ! -d "$APP_PATH" ]; then
   echo "Error: $APP_PATH does not exist!"
@@ -15,28 +16,38 @@ if [ ! -f "$PROFILE_PATH" ]; then
   exit 1
 fi
 
-echo "=== 1. Embedding Provisioning Profile ==="
-cp "$PROFILE_PATH" "$APP_PATH/embedded.mobileprovision"
-
-echo "=== 2. Extracting Entitlements ==="
-security cms -D -i "$PROFILE_PATH" > /tmp/profile.plist
-/usr/libexec/PlistBuddy -x -c "Print :Entitlements" /tmp/profile.plist > /tmp/entitlements.plist
-echo "Entitlements extracted successfully:"
-cat /tmp/entitlements.plist
-
-echo "=== 3. Signing Frameworks and Dynamic Libraries ==="
-if [ -d "$APP_PATH/Frameworks" ]; then
-  find "$APP_PATH/Frameworks" -type f -name "*.dylib" -exec codesign --force --sign "$IDENTITY" --timestamp=none {} \; 2>/dev/null || true
-  find "$APP_PATH/Frameworks" -maxdepth 1 -name "*.framework" -exec codesign --force --sign "$IDENTITY" --timestamp=none {} \; 2>/dev/null || true
+echo "=== 1. Unlocking Keychain ==="
+if [ -f "$KEYCHAIN_PATH" ]; then
+  security unlock-keychain -p "temp_signing_pass_2026" "$KEYCHAIN_PATH" || true
+  security default-keychain -s "$KEYCHAIN_PATH" || true
 fi
 
-echo "=== 4. Signing Main App Bundle ==="
-codesign --force --sign "$IDENTITY" --entitlements /tmp/entitlements.plist --timestamp=none "$APP_PATH"
+echo "=== 2. Embedding Provisioning Profile ==="
+cp "$PROFILE_PATH" "$APP_PATH/embedded.mobileprovision"
 
-echo "=== 5. Verifying Signature ==="
+echo "=== 3. Extracting Entitlements ==="
+security cms -D -i "$PROFILE_PATH" > /tmp/profile.plist
+/usr/libexec/PlistBuddy -x -c "Print :Entitlements" /tmp/profile.plist > /tmp/entitlements.plist
+echo "Entitlements extracted successfully."
+
+echo "=== 4. Signing Frameworks and Dynamic Libraries ==="
+KEYCHAIN_ARG=""
+if [ -f "$KEYCHAIN_PATH" ]; then
+  KEYCHAIN_ARG="--keychain $KEYCHAIN_PATH"
+fi
+
+if [ -d "$APP_PATH/Frameworks" ]; then
+  find "$APP_PATH/Frameworks" -type f -name "*.dylib" -exec codesign $KEYCHAIN_ARG --force --sign "$IDENTITY" --timestamp=none {} \; 2>/dev/null || true
+  find "$APP_PATH/Frameworks" -maxdepth 1 -name "*.framework" -exec codesign $KEYCHAIN_ARG --force --sign "$IDENTITY" --timestamp=none {} \; 2>/dev/null || true
+fi
+
+echo "=== 5. Signing Main App Bundle ==="
+codesign $KEYCHAIN_ARG --force --sign "$IDENTITY" --entitlements /tmp/entitlements.plist --timestamp=none "$APP_PATH"
+
+echo "=== 6. Verifying Signature ==="
 codesign -vvv --deep --strict "$APP_PATH"
 
-echo "=== 6. Packaging into IPA ==="
+echo "=== 7. Packaging into IPA ==="
 IPA_DIR="plan/build/smarthr_app/build/ios/ipa"
 mkdir -p "$IPA_DIR/Payload"
 cp -r "$APP_PATH" "$IPA_DIR/Payload/"

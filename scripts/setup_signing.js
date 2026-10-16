@@ -95,7 +95,7 @@ async function setup() {
   const decodedStr = decodedBuffer.toString("utf8");
   if (decodedStr.includes("-----BEGIN")) {
     console.log("Input is PEM format. Importing directly...");
-    execSync(`security import "${rawInputPath}" -k "${keychainPath}"`);
+    execSync(`security import "${rawInputPath}" -k "${keychainPath}" -A -T /usr/bin/codesign -T /usr/bin/security`);
   } else {
     console.log("Input is PKCS12 format. Converting to PEM via OpenSSL...");
     const p12Pass = process.env.P12_PASSWORD || "smarthrpassword2026";
@@ -105,11 +105,12 @@ async function setup() {
     } catch (e) {
       execSync(`openssl pkcs12 -in "${rawInputPath}" -nodes -passin pass:"${p12Pass}" -out "${pemConvertedPath}"`);
     }
-    execSync(`security import "${pemConvertedPath}" -k "${keychainPath}"`);
+    execSync(`security import "${pemConvertedPath}" -k "${keychainPath}" -A -T /usr/bin/codesign -T /usr/bin/security`);
   }
 
   execSync(`security list-keychains -d user -s "${keychainPath}" $(security list-keychains -d user | tr -d '"')`);
-  execSync(`security set-key-partition-list -S apple-tool:,apple: -s -k "${keychainPass}" "${keychainPath}"`);
+  execSync(`security default-keychain -s "${keychainPath}"`);
+  execSync(`security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${keychainPass}" "${keychainPath}"`);
 
   console.log("\n=== 3. Verifying Keychain Code Signing Identity ===");
   const identity = execSync(`security find-identity -p codesigning "${keychainPath}"`).toString();
