@@ -103,6 +103,6 @@ jobs:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
         with:
           app-path: ${{ steps.find_ipa.outputs.ipa_path }}
-          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID || vars.APP_STORE_CONNECT_ISSUER_ID || 'b1a9061f-7ca4-4e00-9190-e492c2bc3b77' }}
           api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
