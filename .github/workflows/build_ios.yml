@@ -1,4 +1,4 @@
-name: Build iOS IPA
+name: Build & Deploy iOS App Store IPA
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build iOS IPA (Xcode 16)
+    name: Build & Upload to App Store (Xcode 16)
     runs-on: macos-14
 
     steps:
@@ -35,23 +35,74 @@ jobs:
           cd plan/build/smarthr_app/ios
           pod install
 
-      - name: Build iOS Release (Unsigned)
+      - name: Install Apple Certificate and Provisioning Profile
+        if: ${{ env.BUILD_CERTIFICATE_BASE64 != '' }}
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: "temp_signing_keychain_pass"
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Build Signed App Store IPA
+        if: ${{ env.BUILD_CERTIFICATE_BASE64 != '' }}
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+        run: |
+          cd plan/build/smarthr_app
+          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+
+      - name: Build Unsigned Fallback (If No Secrets)
+        if: ${{ env.BUILD_CERTIFICATE_BASE64 == '' }}
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
         run: |
           cd plan/build/smarthr_app
           flutter build ios --release --no-codesign
-
-      - name: Package IPA
-        run: |
-          cd plan/build/smarthr_app
           mkdir -p build/ios/ipa/Payload
           cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
           cd build/ios/ipa
           zip -qr SmartHR.ipa Payload
-          ls -lh SmartHR.ipa
 
-      - name: Upload IPA Artifact
+      - name: Locate IPA
+        id: find_ipa
+        run: |
+          IPA_PATH=$(find plan/build/smarthr_app/build/ios -name "*.ipa" | head -n 1)
+          echo "Found IPA at: $IPA_PATH"
+          echo "ipa_path=$IPA_PATH" >> $GITHUB_OUTPUT
+
+      - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: SmartHR-iOS-IPA
-          path: plan/build/smarthr_app/build/ios/ipa/SmartHR.ipa
+          name: SmartHR-AppStore-IPA
+          path: ${{ steps.find_ipa.outputs.ipa_path }}
           retention-days: 7
+
+      - name: Upload to App Store Connect / TestFlight
+        if: ${{ env.APP_STORE_CONNECT_PRIVATE_KEY != '' && env.BUILD_CERTIFICATE_BASE64 != '' }}
+        uses: apple-actions/upload-testflight-build@v1
+        env:
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+        with:
+          app-path: ${{ steps.find_ipa.outputs.ipa_path }}
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
