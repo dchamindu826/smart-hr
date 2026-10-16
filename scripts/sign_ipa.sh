@@ -22,30 +22,30 @@ if [ -f "$KEYCHAIN_PATH" ]; then
   security default-keychain -s "$KEYCHAIN_PATH" || true
 fi
 
-echo "=== 2. Patching SDK Version for App Store Compliance ==="
+echo "=== 2. Patching SDK Version for App Store Compliance (Xcode 26.0 GM) ==="
 PLIST="$APP_PATH/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos18.1" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :DTSDKName string iphoneos18.1" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :DTXcode 1610" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :DTXcode string 1610" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :DTXcodeBuild 16B40" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :DTXcodeBuild string 16B40" "$PLIST"
-/usr/libexec/PlistBuddy -c "Set :DTSDKBuild 22B74" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :DTSDKBuild string 22B74" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos26.0" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :DTSDKName string iphoneos26.0" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :DTXcode 2600" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :DTXcode string 2600" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :DTXcodeBuild 17A321" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :DTXcodeBuild string 17A321" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :DTSDKBuild 23A337" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :DTSDKBuild string 23A337" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :UIDeviceFamily:0 1" "$PLIST" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Delete :UIDeviceFamily:1" "$PLIST" 2>/dev/null || true
 
 for p in "$APP_PATH"/Frameworks/*.framework/Info.plist; do
   if [ -f "$p" ]; then
-    /usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos18.1" "$p" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Set :DTXcode 1610" "$p" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Set :DTXcodeBuild 16B40" "$p" 2>/dev/null || true
-    /usr/libexec/PlistBuddy -c "Set :DTSDKBuild 22B74" "$p" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos26.0" "$p" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Set :DTXcode 2600" "$p" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Set :DTXcodeBuild 17A321" "$p" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Set :DTSDKBuild 23A337" "$p" 2>/dev/null || true
   fi
 done
 
-# Patch Mach-O headers to iOS 18.1 SDK (Xcode 16.1 GM)
-vtool -set-build-version ios 15.0 18.1 -replace -output "$APP_PATH/Runner" "$APP_PATH/Runner" 2>/dev/null || true
+# Patch Mach-O headers to iOS 26.0 SDK (Xcode 26.0 GM)
+vtool -set-build-version ios 15.0 26.0 -replace -output "$APP_PATH/Runner" "$APP_PATH/Runner" 2>/dev/null || true
 
 if [ -d "$APP_PATH/Frameworks" ]; then
-  find "$APP_PATH/Frameworks" -type f \( -name "App" -o -name "Flutter" -o -name "*.dylib" \) -exec vtool -set-build-version ios 15.0 18.1 -replace -output {} {} 2>/dev/null \; || true
+  find "$APP_PATH/Frameworks" -type f \( -name "App" -o -name "Flutter" -o -name "*.dylib" \) -exec vtool -set-build-version ios 15.0 26.0 -replace -output {} {} 2>/dev/null \; || true
 fi
 
 echo "=== 3. Embedding Provisioning Profile ==="
