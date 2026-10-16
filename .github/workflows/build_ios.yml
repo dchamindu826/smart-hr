@@ -38,7 +38,7 @@ jobs:
       - name: Build iOS Release App
         run: |
           cd plan/build/smarthr_app
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --build-name=1.0.0 --build-number=${{ github.run_number }}
 
       - name: Setup Apple Signing & Keychain
         env:
