@@ -1,0 +1,57 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build iOS IPA (Xcode 16)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode 16
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: |
+          cd plan/build/smarthr_app
+          flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          cd plan/build/smarthr_app/ios
+          pod install
+
+      - name: Build iOS Release (Unsigned)
+        run: |
+          cd plan/build/smarthr_app
+          flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        run: |
+          cd plan/build/smarthr_app
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
+          zip -qr SmartHR.ipa Payload
+          ls -lh SmartHR.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartHR-iOS-IPA
+          path: plan/build/smarthr_app/build/ios/ipa/SmartHR.ipa
+          retention-days: 7

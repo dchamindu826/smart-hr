@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node
+node_modules/
+.npm/
+.next/
+out/
+dist/
+
+# Flutter / Dart build outputs
+plan/build/smarthr_app/build/
+plan/build/smarthr-web/.next/
+frontend/.next/
+**/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+*.iml
+.idea/
+
+# iOS
+**/ios/.symlinks/
+**/ios/Pods/
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/app.framework
+**/ios/Flutter/Flutter.framework
+
+# Sensitive keys and certificates
+*.p8
+*.p12
+*.mobileprovision
+*.pem
+*.key
+.env
+.env*.local
+
+# Heavy documentation files
+docs/
+*.pdf
+
