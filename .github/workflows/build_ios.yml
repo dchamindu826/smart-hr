@@ -35,6 +35,11 @@ jobs:
           cd plan/build/smarthr_app/ios
           pod install
 
+      - name: Build iOS Release App
+        run: |
+          cd plan/build/smarthr_app
+          flutter build ios --release --no-codesign
+
       - name: Setup Apple Signing & Keychain
         env:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
@@ -45,29 +50,22 @@ jobs:
         run: |
           node scripts/setup_signing.js
 
-      - name: Build Signed App Store IPA
+      - name: Codesign and Package App Store IPA
         run: |
-          cd plan/build/smarthr_app
-          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --verbose
-
-      - name: Locate IPA
-        id: find_ipa
-        run: |
-          IPA_PATH=$(find plan/build/smarthr_app/build/ios -name "*.ipa" | head -n 1)
-          echo "Found IPA at: $IPA_PATH"
-          echo "ipa_path=$IPA_PATH" >> $GITHUB_OUTPUT
+          chmod +x scripts/sign_ipa.sh
+          ./scripts/sign_ipa.sh
 
       - name: Upload IPA Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
           name: SmartHR-AppStore-Signed-IPA
-          path: ${{ steps.find_ipa.outputs.ipa_path }}
+          path: plan/build/smarthr_app/build/ios/ipa/SmartHR.ipa
           retention-days: 7
 
       - name: Upload to App Store Connect / TestFlight
         uses: apple-actions/upload-testflight-build@v1
         with:
-          app-path: ${{ steps.find_ipa.outputs.ipa_path }}
+          app-path: plan/build/smarthr_app/build/ios/ipa/SmartHR.ipa
           issuer-id: 'b1a9061f-7ca4-4e00-9190-e492c2bc3b77'
           api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           api-private-key: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
