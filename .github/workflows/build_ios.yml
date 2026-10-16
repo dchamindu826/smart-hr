@@ -48,7 +48,7 @@ jobs:
       - name: Build Signed App Store IPA
         run: |
           cd plan/build/smarthr_app
-          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --verbose
 
       - name: Locate IPA
         id: find_ipa
