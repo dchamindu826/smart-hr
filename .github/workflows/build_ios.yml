@@ -35,39 +35,15 @@ jobs:
           cd plan/build/smarthr_app/ios
           pod install
 
-      - name: Install Apple Certificate and Setup Keychain
+      - name: Setup Apple Signing & Keychain
         env:
-          BUILD_CERT_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-          KEYCHAIN_PASS: "temp_signing_pass_2026"
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID || 'b1a9061f-7ca4-4e00-9190-e492c2bc3b77' }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD || 'smarthrpassword2026' }}
         run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
-          security create-keychain -p "$KEYCHAIN_PASS" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASS" $KEYCHAIN_PATH
-
-          echo "$BUILD_CERT_BASE64" | base64 --decode > $RUNNER_TEMP/cert_input.bin
-
-          if security import $RUNNER_TEMP/cert_input.bin -k $KEYCHAIN_PATH -P "$P12_PASSWORD" -A -T /usr/bin/codesign -T /usr/bin/security 2>/dev/null; then
-            echo "Imported certificate with password successfully."
-          elif security import $RUNNER_TEMP/cert_input.bin -k $KEYCHAIN_PATH -A -T /usr/bin/codesign -T /usr/bin/security; then
-            echo "Imported certificate without password successfully."
-          else
-            echo "Import failed. Checking file format:"
-            file $RUNNER_TEMP/cert_input.bin
-            exit 1
-          fi
-
-          security list-keychains -d user -s $KEYCHAIN_PATH $(security list-keychains -d user | tr -d '"')
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASS" $KEYCHAIN_PATH
-          security find-identity -p codesigning $KEYCHAIN_PATH
-
-      - name: Install Provisioning Profile
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-          cp ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/15f29dec-29e3-41d7-8170-7b3e9203f9af.mobileprovision
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles
+          node scripts/setup_signing.js
 
       - name: Build Signed App Store IPA
         run: |
